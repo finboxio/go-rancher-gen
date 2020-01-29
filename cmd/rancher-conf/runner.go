@@ -57,7 +57,7 @@ func (r *runner) Run() error {
 		return r.poll()
 	}
 
-	log.Info("Polling Metadata with %d second interval", r.Config.Interval)
+	log.Infof("Polling Metadata with %d second interval", r.Config.Interval)
 	ticker := time.NewTicker(time.Duration(r.Config.Interval) * time.Second)
 	defer ticker.Stop()
 	for {
@@ -255,7 +255,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 			Services: make([]*Service, 0),
 		}
 		stacks = append(stacks, &stack)
-		stackMap[s.UUID] = &stack
+		stackMap[s.Name] = &stack
 
 		if s.Name == metaSelf.StackName {
 			self.Stack = &stack
@@ -283,6 +283,8 @@ func (r *runner) createContext() (*TemplateContext, error) {
 	serviceMap := make(map[string]*Service)
 	sidekickParent := make(map[string]*Service)
 	for _, s := range metaServices {
+		s.StackUUID = stackMap[s.StackName].UUID
+
 		stackServiceName := s.StackName + "." + s.Name
 		service := Service{
 			Service: 		s,
@@ -292,7 +294,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 			Labels: 		LabelMap(s.Labels),
 			Links: 			LabelMap(s.Links),
 			Metadata: 	MetadataMap(s.Metadata),
-			Stack: 			stackMap[s.StackUUID],
+			Stack: 			stackMap[s.StackName],
 			Primary: 		s.Name == s.PrimaryServiceName,
 			Sidekick: 	s.Name != s.PrimaryServiceName,
 		}
@@ -334,7 +336,10 @@ func (r *runner) createContext() (*TemplateContext, error) {
 			Sidekicks: 	make([]*Container, 0),
 		}
 
-		container.Service.Containers = append(container.Service.Containers, &container)
+		if container.Service != nil {
+			container.Service.Containers = append(container.Service.Containers, &container)
+		}
+
 		container.Host.Containers = append(container.Host.Containers, &container)
 
 		if container.Primary {
@@ -376,10 +381,22 @@ func (r *runner) createContext() (*TemplateContext, error) {
 func parseServicePorts(ports []string) []ServicePort {
 	var ret []ServicePort
 	for _, port := range ports {
-		if parts := strings.Split(port, ":"); len(parts) == 2 {
+		parts := strings.Split(port, ":")
+		if len(parts) == 2 {
 			public := parts[0]
 			if parts_ := strings.Split(parts[1], "/"); len(parts_) == 2 {
 				ret = append(ret, ServicePort{
+					PublicPort:   public,
+					InternalPort: parts_[0],
+					Protocol:     parts_[1],
+				})
+				continue
+			}
+		} else if len(parts) == 3 {
+			public := parts[1]
+			if parts_ := strings.Split(parts[2], "/"); len(parts_) == 2 {
+				ret = append(ret, ServicePort{
+					BindAddress:  parts[0],
 					PublicPort:   public,
 					InternalPort: parts_[0],
 					Protocol:     parts_[1],

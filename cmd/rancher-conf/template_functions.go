@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
+	"net/url"
 	"time"
 
 	"github.com/Masterminds/sprig"
@@ -32,6 +33,7 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"isJSONObject": isJSONObject,
 		"unflatten": 		unflatten.Unflatten,
 		"yaml":					toYaml,
+		"url": 					url.Parse,
 
 		// Service funcs
 		"self":              selfFunc(ctx),

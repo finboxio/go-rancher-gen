@@ -1,0 +1,11 @@
+version: '2'
+services:
+  metadata:
+    build: .
+    command:
+      - --config
+      - /etc/rancher-conf/config.toml
+      - --metadata-url
+      - https://metadata.staging.finbox.io
+    volumes:
+      - ./test:/etc/rancher-conf
