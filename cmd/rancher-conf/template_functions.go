@@ -13,6 +13,7 @@ import (
 	"github.com/Masterminds/sprig"
 	"github.com/wolfeidau/unflatten"
 	"github.com/ghodss/yaml"
+	"github.com/spf13/cast"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -31,7 +32,7 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"replace":      strings.Replace,
 		"isJSONArray":  isJSONArray,
 		"isJSONObject": isJSONObject,
-		"unflatten": 		unflatten.Unflatten,
+		"unflatten": 		unflat,
 		"yaml":					toYaml,
 		"url": 					url.Parse,
 
@@ -258,4 +259,15 @@ func toYaml(v interface{}) string {
 		return ""
 	}
 	return string(data)
+}
+
+func unflat(delimiter string, in interface{}) (map[string]interface{}, error) {
+	switch in.(type) {
+	case map[string]string:
+		return unflatten.Unflatten(cast.ToStringMap(in), func(k string) []string { return strings.Split(k, delimiter) }), nil
+	case map[string]interface{}:
+		return unflatten.Unflatten(cast.ToStringMap(in), func(k string) []string { return strings.Split(k, delimiter) }), nil
+	default:
+		return make(map[string]interface{}), fmt.Errorf("invalid input type %T", in)
+	}
 }
