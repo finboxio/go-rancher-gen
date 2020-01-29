@@ -263,9 +263,9 @@ func toYaml(v interface{}) string {
 
 func unflat(delimiter string, in interface{}) (map[string]interface{}, error) {
 	switch in.(type) {
-	case map[string]string:
+	case map[string]string, LabelMap:
 		return unflatten.Unflatten(cast.ToStringMap(in), func(k string) []string { return strings.Split(k, delimiter) }), nil
-	case map[string]interface{}:
+	case map[string]interface{}, MetadataMap:
 		return unflatten.Unflatten(cast.ToStringMap(in), func(k string) []string { return strings.Split(k, delimiter) }), nil
 	default:
 		return make(map[string]interface{}), fmt.Errorf("invalid input type %T", in)
