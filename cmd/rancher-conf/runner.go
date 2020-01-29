@@ -17,8 +17,8 @@ import (
 	"text/template"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/rancher/go-rancher-metadata/metadata"
+	log "github.com/sirupsen/logrus"
+	"github.com/finboxio/go-rancher-metadata/metadata"
 )
 
 type runner struct {
@@ -240,21 +240,39 @@ func (r *runner) createContext() (*TemplateContext, error) {
 	if err != nil {
 		return nil, err
 	}
+	metaStacks, err := r.Client.GetStacks()
+	if err != nil {
+		return nil, err
+	}
 
-	self := Self{
-		Stack: metaSelf.StackName,
+	self := Self{}
+
+	stacks := make([]*Stack, 0)
+	stackMap := make(map[string]*Stack)
+	for _, s := range metaStacks {
+		stack := Stack{
+			Stack: 		s,
+			Services: make([]*Service, 0),
+		}
+		stacks = append(stacks, &stack)
+		stackMap[s.UUID] = &stack
+
+		if s.Name == metaSelf.StackName {
+			self.Stack = &stack
+		}
 	}
 
 	hosts := make([]*Host, 0)
+	hostMap := make(map[string]*Host)
 	for _, h := range metaHosts {
 		host := Host{
-			UUID:     h.UUID,
-			Name:     h.Name,
-			Address:  h.AgentIP,
-			Hostname: h.Hostname,
-			Labels:   LabelMap(h.Labels),
+			Host: 			h,
+			Labels: 		LabelMap(h.Labels),
+			Containers: make([]*Container, 0),
 		}
+
 		hosts = append(hosts, &host)
+		hostMap[host.UUID] = &host
 
 		if h.UUID == metaSelf.HostUUID {
 			self.Host = &host
@@ -262,63 +280,66 @@ func (r *runner) createContext() (*TemplateContext, error) {
 	}
 
 	services := make([]*Service, 0)
+	serviceMap := make(map[string]*Service)
+	sidekickParent := make(map[string]*Service)
 	for _, s := range metaServices {
+		stackServiceName := s.StackName + "." + s.Name
 		service := Service{
-			Name:       s.Name,
-			Stack:      s.StackName,
-			Kind:       s.Kind,
-			Vip:        s.Vip,
-			Fqdn:       s.Fqdn,
-			Labels:     LabelMap(s.Labels),
-			Metadata:   MetadataMap(s.Metadata),
+			Service: 		s,
+			Sidekicks: 	make([]*Service, 0),
 			Containers: make([]*Container, 0),
 			Ports:      parseServicePorts(s.Ports),
+			Labels: 		LabelMap(s.Labels),
+			Links: 			LabelMap(s.Links),
+			Metadata: 	MetadataMap(s.Metadata),
+			Stack: 			stackMap[s.StackUUID],
+			Primary: 		s.Name == s.PrimaryServiceName,
+			Sidekick: 	s.Name != s.PrimaryServiceName,
 		}
 
 		services = append(services, &service)
+		serviceMap[stackServiceName] = &service
 
-		if s.Name == metaSelf.ServiceName && s.StackName == metaSelf.StackName {
+		for _, sk := range s.Sidekicks {
+			sidekickServiceName := service.Stack.Name + "." + sk
+			sidekickParent[sidekickServiceName] = &service
+		}
+
+		if service.Primary {
+			service.Stack.Services = append(service.Stack.Services, &service)
+		}
+
+		if s.UUID == metaSelf.ServiceUUID {
 			self.Service = &service
 		}
 	}
 
-	sidekickMap := make(map[string]*Container)
+	for sk, service := range sidekickParent {
+		service.Sidekicks = append(service.Sidekicks, serviceMap[sk])
+	}
+
 	containers := make([]*Container, 0)
+	deploymentParent := make(map[string]*Container)
 	for _, c := range metaContainers {
-		labels := LabelMap(c.Labels)
-
+		stackServiceName := c.StackName + "." + c.ServiceName
 		container := Container{
-			UUID:      c.UUID,
-			Name:      c.Name,
-			Address:   c.PrimaryIp,
-			Stack:     c.StackName,
-			Health:    c.HealthState,
-			State:     c.State,
-			Labels:    labels,
-			Sidekicks: make([]*Container, 0),
+			Container: 	c,
+			Ports: 			parseServicePorts(c.Ports),
+			Labels: 		LabelMap(c.Labels),
+			Links: 			LabelMap(c.Links),
+			Primary: 		c.Labels["io.rancher.service.launch.config"] == "io.rancher.service.primary.launch.config",
+			Sidekick: 	c.Labels["io.rancher.service.launch.config"] != "io.rancher.service.primary.launch.config",
+			Service: 		serviceMap[stackServiceName],
+			Host: 			hostMap[c.HostUUID],
+			Sidekicks: 	make([]*Container, 0),
 		}
 
-		for _, h := range hosts {
-			if h.UUID == c.HostUUID {
-				host := h
-				container.Host = host
-				break
-			}
-		}
+		container.Service.Containers = append(container.Service.Containers, &container)
+		container.Host.Containers = append(container.Host.Containers, &container)
 
-		for _, s := range services {
-			if s.Name == c.ServiceName && s.Stack == c.StackName {
-				service := s
-				service.Containers = append(service.Containers, &container)
-				container.Service = service
-				break
-			}
-		}
-
-		deployment := labels.GetValue("io.rancher.service.deployment.unit")
-		launchConfig := labels.GetValue("io.rancher.service.launch.config")
-		if launchConfig == "io.rancher.service.primary.launch.config" {
-			sidekickMap[deployment] = &container
+		if container.Primary {
+			deployment := container.Labels.GetValue("io.rancher.service.deployment.unit")
+			deploymentParent[deployment] = &container
 		}
 
 		if c.UUID == metaSelf.UUID {
@@ -328,12 +349,10 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		containers = append(containers, &container)
 	}
 
-	for _, c := range containers {
-		launchConfig := c.Labels.GetValue("io.rancher.service.launch.config")
-		deployment := c.Labels.GetValue("io.rancher.service.deployment.unit")
-		parent, hasParent := sidekickMap[deployment]
-		if hasParent && launchConfig != "io.rancher.service.primary.launch.config" {
-			container := c
+	for _, container := range containers {
+		deployment := container.Labels.GetValue("io.rancher.service.deployment.unit")
+		parent, hasParent := deploymentParent[deployment]
+		if container.Sidekick && hasParent {
 			container.Parent = parent
 			container.Service.Parent = parent.Service
 			parent.Sidekicks = append(parent.Sidekicks, container)
@@ -346,6 +365,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		Hosts:      hosts,
 		Services:   services,
 		Containers: containers,
+		Stacks: 		stacks,
 		Self:       &self,
 	}
 

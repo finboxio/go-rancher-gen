@@ -1,49 +1,59 @@
 package main
 
-// Service represents a Rancher service.
-type Service struct {
-	Name       string
-	Stack      string
-	Kind       string // service, loadBalancerService
-	Vip        string
-	Fqdn       string
-	Ports      []ServicePort
-	Labels     LabelMap
-	Metadata   MetadataMap
-	Containers []*Container
-	Parent     *Service
+import "github.com/finboxio/go-rancher-metadata/metadata"
+
+type Self struct {
+	Stack 		*Stack
+	Service 	*Service
+	Container *Container
+	Host 			*Host
 }
 
-// Container represents a container belonging to a Rancher Service.
-type Container struct {
-	UUID      string
-	Name      string
-	Address   string
-	Stack     string
-	Health    string
-	State     string
-	Labels    LabelMap
-	Service   *Service
-	Host      *Host
-	Parent    *Container
-	Sidekicks []*Container
+type Stack struct {
+	metadata.Stack
+	Services			[]*Service
 }
 
 // Host represents a Rancher Host.
 type Host struct {
-	UUID     string
-	Name     string
-	Address  string
-	Hostname string
-	Labels   LabelMap
+	metadata.Host
+
+	Labels 				LabelMap
+
+	Containers []*Container
 }
 
-// Self contains information about the container running this application.
-type Self struct {
-	Stack     string
-	Service   *Service
-	Container *Container
-	Host      *Host
+// Service represents a Rancher service.
+type Service struct {
+	metadata.Service
+
+	Sidekicks  		[]*Service
+	Containers 		[]*Container
+	Ports  				[]ServicePort
+	Labels 				LabelMap
+	Links 				LabelMap
+	Metadata 			MetadataMap
+
+	Primary    		bool
+	Sidekick 			bool
+	Stack			 		*Stack
+	Parent     		*Service
+}
+
+// Container represents a container belonging to a Rancher Service.
+type Container struct {
+	metadata.Container
+
+	Ports					[]ServicePort
+	Labels 				LabelMap
+	Links 				LabelMap
+
+	Primary 			bool
+	Sidekick      bool
+	Service   		*Service
+	Host      		*Host
+	Parent    		*Container
+	Sidekicks 		[]*Container
 }
 
 // ServicePort represents a port exposed by a service

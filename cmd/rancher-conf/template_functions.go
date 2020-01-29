@@ -9,11 +9,14 @@ import (
 	"text/template"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Masterminds/sprig"
+	"github.com/wolfeidau/unflatten"
+	"github.com/ghodss/yaml"
+	log "github.com/sirupsen/logrus"
 )
 
 func newFuncMap(ctx *TemplateContext) template.FuncMap {
-	return template.FuncMap{
+	funcmap := template.FuncMap{
 		// Utility funcs
 		"base":         path.Base,
 		"dir":          path.Dir,
@@ -27,6 +30,8 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"replace":      strings.Replace,
 		"isJSONArray":  isJSONArray,
 		"isJSONObject": isJSONObject,
+		"unflatten": 		unflatten.Unflatten,
+		"yaml":					toYaml,
 
 		// Service funcs
 		"self":              selfFunc(ctx),
@@ -34,11 +39,19 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"hosts":             hostsFunc(ctx),
 		"service":           serviceFunc(ctx),
 		"services":          servicesFunc(ctx),
+		"stack": 						 stackFunc(ctx),
+		"stacks": 					 stacksFunc(ctx),
 		"whereLabelExists":  whereLabelExists,
 		"whereLabelEquals":  whereLabelEquals,
 		"whereLabelMatches": whereLabelEquals,
 		"groupByLabel":      groupByLabel,
 	}
+
+	for k, v := range sprig.TxtFuncMap() {
+		funcmap[k] = v
+  }
+
+  return funcmap
 }
 
 // selfFunc returns the self object
@@ -68,6 +81,27 @@ func servicesFunc(ctx *TemplateContext) func(...string) (interface{}, error) {
 		return ctx.GetServices(s...)
 	}
 }
+
+// stackFunc returns a single stack given a string argument in the form
+// <service-name>.
+func stackFunc(ctx *TemplateContext) func(...string) (interface{}, error) {
+	return func(s ...string) (result interface{}, err error) {
+		result, err = ctx.GetStack(s...)
+		if _, ok := err.(NotFoundError); ok {
+			log.Debug(err)
+			return nil, nil
+		}
+		return
+	}
+}
+
+// stacksFunc returns all available stacks.
+func stacksFunc(ctx *TemplateContext) func() (interface{}, error) {
+	return func() (interface{}, error) {
+		return ctx.GetStacks()
+	}
+}
+
 
 // hostFunc returns a single host given it's UUID.
 func hostFunc(ctx *TemplateContext) func(...string) (interface{}, error) {
@@ -213,4 +247,13 @@ func isJSONObject(in interface{}) bool {
 		return true
 	}
 	return false
+}
+
+func toYaml(v interface{}) string {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		// Swallow errors inside of a template.
+		return ""
+	}
+	return string(data)
 }
