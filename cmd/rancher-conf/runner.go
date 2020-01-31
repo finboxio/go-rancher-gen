@@ -355,6 +355,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		}
 
 		if container.Service != nil {
+			log.Debugf("Adding container %s to service %s", container.Name, container.Service.Name)
 			container.Service.Containers = append(container.Service.Containers, &container)
 		}
 
