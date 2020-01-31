@@ -326,7 +326,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 			service.Stack.Services = append(service.Stack.Services, &service)
 		}
 
-		if s.StackNme == metaSelf.StackName && s.ServiceNme == metaSelf.ServiceName {
+		if s.StackName == metaSelf.StackName && s.Name == metaSelf.ServiceName {
 			log.Debugf("Setting Self.Service to %s", s.Name)
 			self.Service = &service
 		}
