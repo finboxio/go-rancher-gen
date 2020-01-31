@@ -85,6 +85,13 @@ func (r *runner) poll() error {
 
 	if r.Version == newVersion {
 		log.Debug("No changes in Metadata")
+		for _, tmpl := range r.Config.Templates {
+			if tmpl.PollCmd != "" {
+				if err := post(tmpl.PollCmd); err != nil {
+					return fmt.Errorf("Poll command failed: %v", err)
+				}
+			}
+		}
 		return nil
 	}
 
