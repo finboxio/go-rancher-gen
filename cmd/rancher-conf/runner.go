@@ -329,6 +329,8 @@ func (r *runner) createContext() (*TemplateContext, error) {
 
 	for sk, service := range sidekickParent {
 		service.Sidekicks = append(service.Sidekicks, serviceMap[sk])
+		serviceMap[sk].Parent = service
+		log.Debugf("Setting parent of %s to %s", serviceMap[sk].Name, service.Name)
 	}
 
 	containers := make([]*Container, 0)

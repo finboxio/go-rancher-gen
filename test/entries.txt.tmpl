@@ -17,7 +17,7 @@
 {{- end }}
 {{- end }}
 
-{{- with service "haproxy.lb" }}
+{{- with (service "haproxy2-conf.lb").Parent }}
   {{- $default_domains := .Metadata.domains }}
   {{- $frontends := .Metadata.frontends }}
 {{ .Metadata | yaml }}
@@ -83,3 +83,4 @@ entries:
   {{- end }}
   {{- end }}
 {{- end }}
+

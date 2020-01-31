@@ -52,7 +52,6 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 	}
 
 	for k, v := range sprig.TxtFuncMap() {
-		log.Debugf("adding sprig function %s", k)
 		funcmap[k] = v
   }
 
