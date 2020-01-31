@@ -102,6 +102,11 @@ func (r *runner) poll() error {
 		if err := r.processTemplate(tmplFuncs, tmpl); err != nil {
 			return err
 		}
+		if tmpl.PollCmd != "" {
+			if err := post(tmpl.PollCmd); err != nil {
+				return fmt.Errorf("Poll command failed: %v", err)
+			}
+		}
 	}
 
 	if r.Config.OneTime {
@@ -436,6 +441,19 @@ func parseServicePorts(ports []string) []ServicePort {
 	}
 
 	return ret
+}
+
+func post(command string) error {
+	log.Infof("Executing post-poll cmd '%s'", command)
+	cmd := exec.Command("/bin/sh", "-c", command)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		logCmdOutput(command, out)
+		return err
+	}
+
+	log.Debugf("Poll cmd output: %q", string(out))
+	return nil
 }
 
 func check(command, filePath string) error {
