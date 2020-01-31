@@ -256,6 +256,8 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		return nil, err
 	}
 
+	log.Debugf("metaSelf %+v", metaSelf)
+
 	self := Self{}
 
 	stacks := make([]*Stack, 0)
@@ -269,6 +271,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		stackMap[s.Name] = &stack
 
 		if s.Name == metaSelf.StackName {
+			log.Debugf("Setting Self.Stack to %s", s.Name)
 			self.Stack = &stack
 		}
 	}
@@ -286,6 +289,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		hostMap[host.UUID] = &host
 
 		if h.UUID == metaSelf.HostUUID {
+			log.Debugf("Setting Self.Host to %s", h.UUID)
 			self.Host = &host
 		}
 	}
@@ -323,6 +327,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		}
 
 		if s.UUID == metaSelf.ServiceUUID {
+			log.Debugf("Setting Self.Service to %s", s.Name)
 			self.Service = &service
 		}
 	}
@@ -361,6 +366,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		}
 
 		if c.UUID == metaSelf.UUID {
+			log.Debugf("Setting Self.Container to %s", c.UUID)
 			self.Container = &container
 		}
 
