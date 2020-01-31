@@ -398,7 +398,9 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		Self:       &self,
 	}
 
-	log.Debugf("Self Service Containers %+v", ctx.Self.Service.Containers)
+	for _, container := range ctx.Self.Service.Containers {
+		log.Debugf("Self Service Container %s", container.Name)
+	}
 
 	return &ctx, nil
 }
