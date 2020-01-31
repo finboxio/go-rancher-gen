@@ -395,7 +395,7 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		Services:   services,
 		Containers: containers,
 		Stacks: 		stacks,
-		Self:       &self,
+		Self:       self,
 	}
 
 	for _, container := range ctx.Self.Service.Containers {

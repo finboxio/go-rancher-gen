@@ -19,7 +19,7 @@ type TemplateContext struct {
 	Containers []*Container
 	Hosts      []*Host
 	Stacks 		 []*Stack
-	Self       *Self
+	Self       Self
 }
 
 // GetHost returns the Host with the given UUID. If the argument is omitted
