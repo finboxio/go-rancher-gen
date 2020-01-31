@@ -398,6 +398,8 @@ func (r *runner) createContext() (*TemplateContext, error) {
 		Self:       &self,
 	}
 
+	log.Debugf("Self Service Containers %+v", ctx.Self.Service.Containers)
+
 	return &ctx, nil
 }
 
