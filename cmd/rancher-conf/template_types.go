@@ -64,6 +64,15 @@ type ServicePort struct {
 	Protocol     string
 }
 
+type ParsedUrl struct {
+	Scheme 			string
+	Host 				string
+	Port 				int
+	Path  			string
+	Username 		string
+	Password 		string
+}
+
 // LabelMap contains the labels of a service or host.
 type LabelMap map[string]string
 

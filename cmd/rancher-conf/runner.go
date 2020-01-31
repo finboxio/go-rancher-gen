@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+	"sort"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/finboxio/go-rancher-metadata/metadata"
@@ -124,7 +125,17 @@ func (r *runner) processTemplate(funcs template.FuncMap, t Template) error {
 	}
 
 	name := filepath.Base(t.Source)
-	newTemplate, err := template.New(name).Funcs(funcs).Parse(string(tmplBytes))
+	newTemplate := template.New(name)
+	// copied from: https://github.com/helm/helm/blob/8648ccf5d35d682dcd5f7a9c2082f0aaf071e817/pkg/engine/engine.go#L147-L154
+  funcs["include"] = func(name string, data interface{}) (string, error) {
+      buf := bytes.NewBuffer(nil)
+      if err := newTemplate.ExecuteTemplate(buf, name, data); err != nil {
+          return "", err
+      }
+      return buf.String(), nil
+  }
+
+	newTemplate, err = newTemplate.Funcs(funcs).Parse(string(tmplBytes))
 	if err != nil {
 		log.Fatalf("Could not parse template '%s': %v", t.Source, err)
 	}
@@ -353,6 +364,10 @@ func (r *runner) createContext() (*TemplateContext, error) {
 
 		containers = append(containers, &container)
 	}
+
+	sort.Slice(containers, func(i, j int) bool {
+  	return containers[i].CreateIndex < containers[j].CreateIndex
+	})
 
 	for _, container := range containers {
 		deployment := container.Labels.GetValue("io.rancher.service.deployment.unit")

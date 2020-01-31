@@ -9,11 +9,12 @@ import (
 	"text/template"
 	"net/url"
 	"time"
+	"reflect"
+	"strconv"
 
-	"github.com/Masterminds/sprig"
+	"github.com/Masterminds/sprig/v3"
 	"github.com/wolfeidau/unflatten"
 	"github.com/ghodss/yaml"
-	"github.com/spf13/cast"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -32,9 +33,9 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 		"replace":      strings.Replace,
 		"isJSONArray":  isJSONArray,
 		"isJSONObject": isJSONObject,
-		"unflatten": 		unflat,
+		"unflatten": 		inflate,
 		"yaml":					toYaml,
-		"url": 					url.Parse,
+		"url": 					parseUrl,
 
 		// Service funcs
 		"self":              selfFunc(ctx),
@@ -51,6 +52,7 @@ func newFuncMap(ctx *TemplateContext) template.FuncMap {
 	}
 
 	for k, v := range sprig.TxtFuncMap() {
+		log.Debugf("adding sprig function %s", k)
 		funcmap[k] = v
   }
 
@@ -261,13 +263,40 @@ func toYaml(v interface{}) string {
 	return string(data)
 }
 
-func unflat(delimiter string, in interface{}) (map[string]interface{}, error) {
-	switch in.(type) {
-	case map[string]string, LabelMap:
-		return unflatten.Unflatten(cast.ToStringMap(in), func(k string) []string { return strings.Split(k, delimiter) }), nil
-	case map[string]interface{}, MetadataMap:
-		return unflatten.Unflatten(cast.ToStringMap(in), func(k string) []string { return strings.Split(k, delimiter) }), nil
-	default:
-		return make(map[string]interface{}), fmt.Errorf("invalid input type %T", in)
+func inflate(delimiter string, in interface{}) (map[string]interface{}, error) {
+	msi := make(map[string]interface{})
+	iter := reflect.ValueOf(in).MapRange()
+	for iter.Next() {
+		key := iter.Key().String()
+		msi[key] = iter.Value().Interface()
 	}
+
+	return unflatten.Unflatten(msi, func(k string) []string { return strings.Split(k, delimiter) }), nil
+}
+
+func parseUrl(urlStr string) *ParsedUrl {
+	parseable := urlStr
+	if ! (strings.HasPrefix(urlStr, "//") || strings.Contains(urlStr, "://")) {
+		parseable = "//" + urlStr
+	}
+
+	parsed, err := url.Parse(parseable)
+	if err != nil { return nil }
+
+	obj := ParsedUrl{
+		Scheme: 		parsed.Scheme,
+		Host: 			parsed.Hostname(),
+		Path: 			parsed.Path,
+	}
+
+	port, ok := strconv.Atoi(parsed.Port())
+	if ok == nil { obj.Port = port }
+
+	if parsed.User != nil {
+		obj.Username = parsed.User.Username()
+		password, exists := parsed.User.Password()
+		if exists { obj.Password = password }
+	}
+
+	return &obj
 }
