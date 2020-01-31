@@ -354,13 +354,6 @@ func (r *runner) createContext() (*TemplateContext, error) {
 			Sidekicks: 	make([]*Container, 0),
 		}
 
-		if container.Service != nil {
-			log.Debugf("Adding container %s to service %s", container.Name, container.Service.Name)
-			container.Service.Containers = append(container.Service.Containers, &container)
-		}
-
-		container.Host.Containers = append(container.Host.Containers, &container)
-
 		if container.Primary {
 			deployment := container.Labels.GetValue("io.rancher.service.deployment.unit")
 			deploymentParent[deployment] = &container
@@ -386,6 +379,13 @@ func (r *runner) createContext() (*TemplateContext, error) {
 			container.Service.Parent = parent.Service
 			parent.Sidekicks = append(parent.Sidekicks, container)
 		}
+
+		if container.Service != nil {
+			log.Debugf("Adding container %s to service %s", container.Name, container.Service.Name)
+			container.Service.Containers = append(container.Service.Containers, &container)
+		}
+
+		container.Host.Containers = append(container.Host.Containers, &container)
 	}
 
 	log.Debugf("Finished building context")
